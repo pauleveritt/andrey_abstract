@@ -1,7 +1,7 @@
 import inspect
 from dataclasses import dataclass
 from inspect import signature
-from typing import Type, TypeVar, Dict, NamedTuple, Any, Optional
+from typing import Type, TypeVar, Dict, NamedTuple, Any, Optional, List
 
 T = TypeVar('T')
 
@@ -14,10 +14,7 @@ class FieldInfo(NamedTuple):
     default_value: Optional[Any]
 
 
-FieldInfos = list[FieldInfo]
-
-
-def get_field_infos(target: type) -> FieldInfos:
+def get_field_infos(target: type) -> List[FieldInfo]:
     results = []
     empty = getattr(inspect, '_empty')
     for value in signature(target).parameters.values():
@@ -47,7 +44,7 @@ class DefaultView(View):
 
 @dataclass
 class Logo:
-    config: Config = Config()
+    config: Config
 
     def render(self) -> str:
         return f'<img src="{self.config.logo_path}"/>'
@@ -59,7 +56,6 @@ class Header:
 
     def render(self) -> str:
         return f'<h1>{self.logo.render()}</h1>'
-
 
 
 class Registry:
