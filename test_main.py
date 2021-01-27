@@ -4,15 +4,15 @@ from main import Registry, Header, Logo, get_field_infos, View, Request, Default
 
 
 @pytest.fixture
-def registry(app_registry):
+def registry(app_registry) -> Registry:
     registry = Registry(app_registry)
-    registry.register_singleton(Request('http://localhost:8000/'))
+    registry.register_singleton(Request('/default/foo'))
     registry.register_class(View, DefaultView)
     return registry
 
 
 @pytest.fixture
-def app_registry():
+def app_registry() -> Registry:
     registry = Registry()
     registry.configure_from_json('config.json')
     return registry
@@ -43,4 +43,10 @@ def test_view(registry):
     else:
         pytest.fail("Should have got DefaultView")
     assert view.render() == ('<div><h1><img src="default.png"/></h1> -- '
-                             'http://localhost:8000/</div>')
+                             '/default/foo</div>')
+
+
+def test_views(registry):
+    x = View.select(registry)
+    assert x.render() == ('<div><h1><img src="default.png"/></h1> -- '
+                          '/default/foo</div>')

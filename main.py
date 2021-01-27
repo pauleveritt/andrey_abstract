@@ -4,6 +4,7 @@ import inspect
 import json
 import typing
 from abc import abstractmethod, ABCMeta
+from collections import defaultdict
 from dataclasses import dataclass
 from inspect import signature
 from typing import Type, TypeVar, Dict, NamedTuple, Any, Optional, List
@@ -46,9 +47,18 @@ class Request:
 
 class View(metaclass=ABCMeta):
     request: Request
+    url_prefix: str
 
     @abstractmethod
     def render(self) -> str: ...
+
+    def matches(self) -> bool:
+        return self.request.url.startswith(self.url_prefix)
+
+    @classmethod
+    def select(cls, registry: Registry) -> View:
+        views = registry.get_components(View)
+        return next(view for view in views if view.matches())
 
 
 @dataclass
@@ -60,6 +70,7 @@ class Config:
 class DefaultView(View):
     request: Request
     header: Header
+    url_prefix: str = "/default"
 
     def render(self) -> str:
         return f'''<div>{self.header.render()} -- {self.request.url}</div>'''
@@ -83,29 +94,31 @@ class Header:
 
 class Registry:
     def __init__(self, parent: Registry = None):
-        self.classes: Dict[type, type] = {}
+        self.classes: Dict[type, List[type]] = defaultdict(list)
         self.singletons: Dict[type, Any] = {}
         self.parent: Optional[Registry] = parent
 
-    def get_component(self, interface: Type[T]) -> T:
+    def get_components(self, interface: Type[T]) -> List[T]:
         try:
-            return self.singletons[interface]
+            return [self.singletons[interface]]
         except KeyError:
             pass
 
         # Use the interface to get the implementation class we want to make
-        target = self.classes.get(interface)
-        if target is None:
+        classes = self.classes.get(interface)
+        if not classes:
             if self.parent is not None:
-                return self.parent.get_component(interface)
+                return self.parent.get_components(interface)
             else:
-                target = interface
+                classes = [interface]
+        return [self._instantiate_cls(cls) for cls in classes]
 
+    def _instantiate_cls(self, cls: Type[T]) -> T:
         # Use inspect to find what values that class wants
         kwargs = {}
-        field_infos = get_field_infos(target)
+        field_infos = get_field_infos(cls)
         if not field_infos:
-            raise TypeError(f"Class '{target.__qualname__}' does not define any "
+            raise TypeError(f"Class '{cls.__qualname__}' does not define any "
                             f"constructor parameters")
 
         for field_info in field_infos:
@@ -120,7 +133,10 @@ class Registry:
             kwargs[field_info.field_name] = field_value
 
         # Construct and return the class
-        return target(**kwargs)
+        return cls(**kwargs)
+
+    def get_component(self, interface: Type[T]) -> T:
+        return next(iter(self.get_components(interface)))
 
     def register_singleton(self, x: T, cls: Type[T] = None) -> None:
         if cls is None:
@@ -128,7 +144,7 @@ class Registry:
         self.singletons[cls] = x
 
     def register_class(self, interface: Type[T], cls: Type[T]) -> None:
-        self.classes[interface] = cls
+        self.classes[interface].append(cls)
 
     def configure_from_json(self, filename: str) -> None:
         with open(filename, 'rb') as fd:
