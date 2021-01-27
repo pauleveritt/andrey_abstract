@@ -1,6 +1,7 @@
 import pytest
 
-from main import Registry, Header, Logo, get_field_infos, View, Request, DefaultView
+from main import Registry, Header, Logo, get_field_infos, View, Request, DefaultView, \
+    Config
 
 
 @pytest.fixture
@@ -47,6 +48,11 @@ def test_view(registry):
 
 
 def test_views(registry):
-    x = View.select(registry)
+    x = registry.get_component(View)
     assert x.render() == ('<div><h1><img src="default.png"/></h1> -- '
                           '/default/foo</div>')
+
+
+def test_config(registry):
+    c = registry.get_component(Config)
+    assert isinstance(c, Config)

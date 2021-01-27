@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from inspect import signature
 from typing import Type, TypeVar, Dict, NamedTuple, Any, Optional, List
 
-T = TypeVar('T')
-
 
 class FieldInfo(NamedTuple):
     """ Extract needed info from dataclass fields, functions, etc. """
@@ -40,12 +38,22 @@ def get_field_infos(target: type) -> List[FieldInfo]:
     return results
 
 
+class Component(metaclass=ABCMeta):
+    @classmethod
+    def select(cls: Type[T], registry: Registry) -> T:
+        return registry.get_components(cls)[0]
+
+
+T = TypeVar('T')
+TC = TypeVar('TC', bound=Component)
+
+
 @dataclass
-class Request:
+class Request(Component):
     url: str
 
 
-class View(metaclass=ABCMeta):
+class View(Component):
     request: Request
     url_prefix: str
 
@@ -56,13 +64,13 @@ class View(metaclass=ABCMeta):
         return self.request.url.startswith(self.url_prefix)
 
     @classmethod
-    def select(cls, registry: Registry) -> View:
+    def select(cls: Type[T], registry: Registry) -> T:
         views = registry.get_components(View)
         return next(view for view in views if view.matches())
 
 
 @dataclass
-class Config:
+class Config(Component):
     logo_path: str
 
 
@@ -77,7 +85,7 @@ class DefaultView(View):
 
 
 @dataclass
-class Logo:
+class Logo(Component):
     config: Config
 
     def render(self) -> str:
@@ -85,7 +93,7 @@ class Logo:
 
 
 @dataclass
-class Header:
+class Header(Component):
     logo: Logo
 
     def render(self) -> str:
@@ -98,7 +106,7 @@ class Registry:
         self.singletons: Dict[type, Any] = {}
         self.parent: Optional[Registry] = parent
 
-    def get_components(self, interface: Type[T]) -> List[T]:
+    def get_components(self, interface: Type[TC]) -> List[TC]:
         try:
             return [self.singletons[interface]]
         except KeyError:
@@ -113,7 +121,7 @@ class Registry:
                 classes = [interface]
         return [self._instantiate_cls(cls) for cls in classes]
 
-    def _instantiate_cls(self, cls: Type[T]) -> T:
+    def _instantiate_cls(self, cls: Type[TC]) -> TC:
         # Use inspect to find what values that class wants
         kwargs = {}
         field_infos = get_field_infos(cls)
@@ -135,15 +143,16 @@ class Registry:
         # Construct and return the class
         return cls(**kwargs)
 
-    def get_component(self, interface: Type[T]) -> T:
-        return next(iter(self.get_components(interface)))
+    def get_component(self, interface: Type[TC]) -> TC:
+        return interface.select(self)
+        # return next(iter(self.get_components(interface)))
 
     def register_singleton(self, x: T, cls: Type[T] = None) -> None:
         if cls is None:
             cls = type(x)
         self.singletons[cls] = x
 
-    def register_class(self, interface: Type[T], cls: Type[T]) -> None:
+    def register_class(self, interface: Type[TC], cls: Type[TC]) -> None:
         self.classes[interface].append(cls)
 
     def configure_from_json(self, filename: str) -> None:
