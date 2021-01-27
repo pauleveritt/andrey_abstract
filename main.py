@@ -82,9 +82,10 @@ class Header:
 
 
 class Registry:
-    def __init__(self):
+    def __init__(self, parent: Registry = None):
         self.classes: Dict[type, type] = {}
         self.singletons: Dict[type, Any] = {}
+        self.parent: Optional[Registry] = parent
 
     def get_component(self, interface: Type[T]) -> T:
         try:
@@ -93,11 +94,21 @@ class Registry:
             pass
 
         # Use the interface to get the implementation class we want to make
-        target = self.classes.get(interface, interface)
+        target = self.classes.get(interface)
+        if target is None:
+            if self.parent is not None:
+                return self.parent.get_component(interface)
+            else:
+                target = interface
 
         # Use inspect to find what values that class wants
         kwargs = {}
-        for field_info in get_field_infos(target):
+        field_infos = get_field_infos(target)
+        if not field_infos:
+            raise TypeError(f"Class '{target.__qualname__}' does not define any "
+                            f"constructor parameters")
+
+        for field_info in field_infos:
             if field_info.default_value is not None:
                 # This field has a default value, let's presume it
                 # isn't something to look up. The actual rule here
