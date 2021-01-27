@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import inspect
 import json
+import typing
+from abc import abstractmethod, ABCMeta
 from dataclasses import dataclass
 from inspect import signature
 from typing import Type, TypeVar, Dict, NamedTuple, Any, Optional, List
@@ -23,20 +27,28 @@ def get_field_infos(target: type) -> List[FieldInfo]:
     except ValueError:
         return []
 
+    type_hints = typing.get_type_hints(target)
+
     for value in sign.parameters.values():
-        name = value.name
-        name_type = value.annotation
         default = value.default
         results.append(FieldInfo(
-            field_name=name,
-            field_type=name_type,
+            field_name=value.name,
+            field_type=type_hints.get(value.name, value.annotation),
             default_value=default if default is not empty else None
         ))
     return results
 
 
-class View:
-    pass
+@dataclass
+class Request:
+    url: str
+
+
+class View(metaclass=ABCMeta):
+    request: Request
+
+    @abstractmethod
+    def render(self) -> str: ...
 
 
 @dataclass
@@ -44,8 +56,13 @@ class Config:
     logo_path: str
 
 
+@dataclass
 class DefaultView(View):
-    config: Config
+    request: Request
+    header: Header
+
+    def render(self) -> str:
+        return f'''<div>{self.header.render()} -- {self.request.url}</div>'''
 
 
 @dataclass
@@ -98,6 +115,9 @@ class Registry:
         if cls is None:
             cls = type(x)
         self.singletons[cls] = x
+
+    def register_class(self, interface: Type[T], cls: Type[T]) -> None:
+        self.classes[interface] = cls
 
     def configure_from_json(self, filename: str) -> None:
         with open(filename, 'rb') as fd:
