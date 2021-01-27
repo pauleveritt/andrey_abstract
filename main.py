@@ -61,10 +61,6 @@ class Header:
         return f'<h1>{self.logo.render()}</h1>'
 
 
-def test_field_infos():
-    field_infos = get_field_infos(Header)
-    assert Logo == field_infos[0].field_type
-
 
 class Registry:
     def __init__(self):
