@@ -1,4 +1,5 @@
 import inspect
+import json
 from dataclasses import dataclass
 from inspect import signature
 from typing import Type, TypeVar, Dict, NamedTuple, Any, Optional, List
@@ -17,7 +18,12 @@ class FieldInfo(NamedTuple):
 def get_field_infos(target: type) -> List[FieldInfo]:
     results = []
     empty = getattr(inspect, '_empty')
-    for value in signature(target).parameters.values():
+    try:
+        sign = signature(target)
+    except ValueError:
+        return []
+
+    for value in sign.parameters.values():
         name = value.name
         name_type = value.annotation
         default = value.default
@@ -35,7 +41,7 @@ class View:
 
 @dataclass
 class Config:
-    logo_path: str = 'default.png'
+    logo_path: str
 
 
 class DefaultView(View):
@@ -60,14 +66,17 @@ class Header:
 
 class Registry:
     def __init__(self):
-        self.dict: Dict[type, type] = {
-            Logo: Logo,
-            Header: Header,
-        }
+        self.classes: Dict[type, type] = {}
+        self.singletons: Dict[type, Any] = {}
 
     def get_component(self, interface: Type[T]) -> T:
+        try:
+            return self.singletons[interface]
+        except KeyError:
+            pass
+
         # Use the interface to get the implementation class we want to make
-        target = self.dict.get(interface, interface)
+        target = self.classes.get(interface, interface)
 
         # Use inspect to find what values that class wants
         kwargs = {}
@@ -84,6 +93,16 @@ class Registry:
 
         # Construct and return the class
         return target(**kwargs)
+
+    def register_singleton(self, x: T, cls: Type[T] = None) -> None:
+        if cls is None:
+            cls = type(x)
+        self.singletons[cls] = x
+
+    def configure_from_json(self, filename: str) -> None:
+        with open(filename, 'rb') as fd:
+            kwargs = json.load(fd)
+        self.register_singleton(Config(**kwargs))
 
 
 def test_header():
