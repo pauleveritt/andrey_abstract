@@ -159,10 +159,3 @@ class Registry:
         with open(filename, 'rb') as fd:
             kwargs = json.load(fd)
         self.register_singleton(Config(**kwargs))
-
-
-def test_header():
-    registry = Registry()
-    header = registry.get_component(Header)
-    assert header.logo.config.logo_path == 'default.png'
-    assert header.render() == '<h1><img src="default.png"/></h1>'
