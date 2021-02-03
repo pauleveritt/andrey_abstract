@@ -14,7 +14,7 @@ class FieldInfo(NamedTuple):
     """ Extract needed info from dataclass fields, functions, etc. """
 
     field_name: str
-    field_type: Type[T]
+    field_type: Type[Component]
     default_value: Optional[Any]
 
 
@@ -40,12 +40,12 @@ def get_field_infos(target: type) -> List[FieldInfo]:
 
 class Component(metaclass=ABCMeta):
     @classmethod
-    def select(cls: Type[T], registry: Registry) -> T:
+    def select(cls: Type[TC], registry: Registry) -> TC:
         return registry.get_components(cls)[0]
 
 
 T = TypeVar('T')
-TC = TypeVar('TC', bound=Component)
+TC = TypeVar('TC', bound=Component, covariant=True)
 
 
 @dataclass
@@ -64,7 +64,7 @@ class View(Component):
         return self.request.url.startswith(self.url_prefix)
 
     @classmethod
-    def select(cls: Type[T], registry: Registry) -> T:
+    def select(cls: Type[View], registry: Registry) -> View:
         views = registry.get_components(View)
         return next(view for view in views if view.matches())
 
@@ -141,7 +141,7 @@ class Registry:
             kwargs[field_info.field_name] = field_value
 
         # Construct and return the class
-        return cls(**kwargs)
+        return cls(**kwargs)  # type: ignore
 
     def get_component(self, interface: Type[TC]) -> TC:
         return interface.select(self)
