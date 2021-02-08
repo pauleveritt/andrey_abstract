@@ -1,7 +1,7 @@
 import pytest
 
-from main import Registry, Header, Logo, get_field_infos, View, Request, DefaultView, \
-    Config
+from main import Header, Logo, View, Request, DefaultView
+from registry import Registry, get_field_infos, Config
 
 
 @pytest.fixture
