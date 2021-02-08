@@ -1,22 +1,7 @@
 import pytest
 
 from main import Header, Logo, View, Request, DefaultView
-from registry import Registry, get_field_infos, Config
-
-
-@pytest.fixture
-def registry(app_registry: Registry) -> Registry:
-    registry = Registry(app_registry)
-    registry.register_singleton(Request('/default/foo'))
-    registry.register_class(View, DefaultView)
-    return registry
-
-
-@pytest.fixture
-def app_registry() -> Registry:
-    registry = Registry()
-    registry.configure_from_json('config.json')
-    return registry
+from registry import Registry
 
 
 def test_logo(registry: Registry) -> None:
@@ -29,11 +14,6 @@ def test_header(registry: Registry) -> None:
     header = registry.get_component(Header)
     assert header.logo.config.logo_path == 'default.png'
     assert header.render() == '<h1><img src="default.png"/></h1>'
-
-
-def test_field_infos() -> None:
-    field_infos = get_field_infos(Header)
-    assert Logo == field_infos[0].field_type
 
 
 def test_view(registry: Registry) -> None:
@@ -51,8 +31,3 @@ def test_views(registry: Registry) -> None:
     x = registry.get_component(View)
     assert x.render() == ('<div><h1><img src="default.png"/></h1> -- '
                           '/default/foo</div>')
-
-
-def test_config(registry: Registry) -> None:
-    c = registry.get_component(Config)
-    assert isinstance(c, Config)
