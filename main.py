@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Type
 
-from registry import Component, Config, Registry
+from registry import Component, Registry
 
 
 @dataclass
@@ -52,3 +53,14 @@ class Header(Component):
 
     def render(self) -> str:
         return f'<h1>{self.logo.render()}</h1>'
+
+
+@dataclass
+class Config(Component):
+    logo_path: str
+
+
+def configure_from_json(registry: Registry, filename: str) -> None:
+    with open(filename, 'rb') as fd:
+        kwargs = json.load(fd)
+    registry.register_singleton(Config(**kwargs))
